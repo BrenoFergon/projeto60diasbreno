@@ -558,4 +558,284 @@
       Sucos e bebidas calóricas não promovem saciedade — as fibras e a mastigação da fruta inteira fazem diferença real. Água, café sem açúcar e chás são suas melhores pedidas ao longo do dia.
     </div>
     <div class="tip-card">
-      <strong>Sono: pr
+      <strong>Sono: prioridade máxima para o projeto</strong>
+      Menos de 6h desregula grelina (+fome) e leptina (-saciedade), além de favorecer gordura visceral. Com TDH, crie uma rotina de desligamento de telas 1h antes de dormir.
+    </div>
+    <div class="tip-card">
+      <strong>Álcool: você já bebe raramente — ótimo</strong>
+      Álcool direciona o acúmulo de gordura especificamente para o abdômen e reduz síntese proteica por até 24h. No projeto de 60 dias, manter essa frequência baixa vai fazer diferença real.
+    </div>
+    <div class="tip-card">
+      <strong>Passa o dia sentado: micro-movimentos importam</strong>
+      A cada 1h de trabalho sentado, faça 5 min em pé, caminhando ou se alongando. Isso aumenta o NEAT (gasto calórico não-treino) — que pode somar 200–300 kcal a mais por dia sem esforço extra.
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+const START_DATE = new Date('2026-05-19');
+const META_CAL = 2180, META_PROT = 180, META_CARB = 220, META_FAT = 62;
+
+const FOOD_DB = [
+  {n:'Frango grelhado (100g)',cal:165,p:31,c:0,f:4},
+  {n:'Frango desfiado (100g)',cal:150,p:28,c:0,f:4},
+  {n:'Ovo inteiro (1 un)',cal:70,p:6,c:0,f:5},
+  {n:'Clara de ovo (1 un)',cal:17,p:4,c:0,f:0},
+  {n:'Arroz branco cozido (100g)',cal:130,p:2,c:28,f:0},
+  {n:'Arroz integral cozido (100g)',cal:124,p:3,c:26,f:1},
+  {n:'Feijão cozido (100g)',cal:112,p:7,c:20,f:0},
+  {n:'Batata inglesa cozida (100g)',cal:77,p:2,c:17,f:0},
+  {n:'Batata-doce cozida (100g)',cal:86,p:2,c:20,f:0},
+  {n:'Pão de forma integral (1 fatia)',cal:70,p:3,c:12,f:1},
+  {n:'Requeijão light (1 cs)',cal:60,p:3,c:2,f:4},
+  {n:'Whey protein (1 dose 30g)',cal:120,p:25,c:3,f:2},
+  {n:'Aveia (40g)',cal:148,p:5,c:27,f:3},
+  {n:'Banana média (1 un)',cal:89,p:1,c:23,f:0},
+  {n:'Tomate cereja (100g)',cal:18,p:1,c:4,f:0},
+  {n:'Brócolis (100g)',cal:34,p:3,c:7,f:0},
+  {n:'Abobrinha (100g)',cal:17,p:1,c:4,f:0},
+  {n:'Abóbora cozida (100g)',cal:26,p:1,c:6,f:0},
+  {n:'Chuchu (100g)',cal:19,p:1,c:4,f:0},
+  {n:'Carne moída patinho (100g)',cal:160,p:20,c:0,f:9},
+  {n:'Tilápia grelhada (100g)',cal:128,p:26,c:0,f:3},
+  {n:'Atum em água lata (100g)',cal:100,p:23,c:0,f:1},
+  {n:'Queijo cottage (100g)',cal:98,p:11,c:4,f:4},
+  {n:'Iogurte grego 0% (100g)',cal:57,p:10,c:4,f:0},
+  {n:'Leite desnatado (200ml)',cal:70,p:7,c:10,f:0},
+  {n:'Azeite (1 cs)',cal:90,p:0,c:0,f:10},
+  {n:'Mel (1 cs)',cal:64,p:0,c:17,f:0},
+  {n:'Cream cracker (3 un)',cal:120,p:2,c:20,f:4},
+  {n:'Manteiga (1 cs)',cal:90,p:0,c:0,f:10},
+  {n:'Cenoura (100g)',cal:41,p:1,c:10,f:0},
+];
+
+function todayKey(){return new Date().toISOString().slice(0,10);}
+function getDayNum(){return Math.max(1,Math.floor((new Date()-START_DATE)/(86400000))+1);}
+
+let log = JSON.parse(localStorage.getItem('breno_log_'+todayKey())||'[]');
+let weights = JSON.parse(localStorage.getItem('breno_weights')||'[{"d":"2026-05-19","v":83.1}]');
+let doneDays = JSON.parse(localStorage.getItem('breno_done')||'[]');
+let waterCount = parseInt(localStorage.getItem('breno_water_'+todayKey())||'0');
+let photosDone = JSON.parse(localStorage.getItem('breno_photos')||'[]');
+let wChart = null;
+
+function switchTab(id){
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    t.classList.toggle('active',['painel','dieta','registro','progresso','dicas'][i]===id);
+  });
+  document.querySelectorAll('.section').forEach(s=>s.classList.toggle('active',s.id==='tab-'+id));
+  if(id==='progresso') setTimeout(renderWeightChart,100);
+}
+
+function toggleMeal(btn){
+  const items=btn.closest('.meal-card').querySelector('.meal-items');
+  items.classList.toggle('open');
+  btn.querySelector('i').className=items.classList.contains('open')?'ti ti-chevron-up':'ti ti-chevron-down';
+}
+
+function toggleCheck(item){
+  const c=item.querySelector('.check-circle');
+  c.classList.toggle('checked');
+  c.innerHTML=c.classList.contains('checked')?'✓':'';
+  item.classList.toggle('done-item',c.classList.contains('checked'));
+}
+
+function initWater(){
+  const el=document.getElementById('water-drops');
+  el.innerHTML='';
+  for(let i=0;i<12;i++){
+    const d=document.createElement('span');
+    d.className='water-drop'+(i<waterCount?' filled':'');
+    d.textContent='💧';
+    d.onclick=()=>{waterCount=(i<waterCount)?i:i+1;localStorage.setItem('breno_water_'+todayKey(),waterCount);initWater();};
+    el.appendChild(d);
+  }
+  document.getElementById('water-label').textContent=waterCount+' / 12 copos (~'+(waterCount*0.25).toFixed(1)+'L)';
+}
+
+function initJourney(){
+  const g=document.getElementById('journey-grid');
+  g.innerHTML='';
+  const dayNum=getDayNum();
+  for(let i=1;i<=60;i++){
+    if((i-1)%7===0){
+      const wl=document.createElement('div');
+      wl.className='week-label';
+      wl.textContent='Semana '+Math.ceil(i/7);
+      g.appendChild(wl);
+    }
+    const d=document.createElement('div');
+    d.className='day-dot';
+    if(doneDays.includes(i))d.classList.add('done');
+    if(i===dayNum)d.classList.add('today');
+    d.title='Dia '+i;
+    d.onclick=()=>{
+      doneDays.includes(i)?doneDays=doneDays.filter(x=>x!==i):doneDays.push(i);
+      localStorage.setItem('breno_done',JSON.stringify(doneDays));
+      d.classList.toggle('done');
+      updateStreak();updateProgressDays();
+    };
+    g.appendChild(d);
+  }
+}
+
+function updateStreak(){
+  let s=0;const dayNum=getDayNum();
+  for(let i=dayNum;i>=1;i--){if(doneDays.includes(i))s++;else break;}
+  document.getElementById('streak-num').textContent=Math.max(s,doneDays.includes(getDayNum())?1:0)||'0';
+}
+
+function updateDayCounter(){
+  const d=getDayNum();
+  document.getElementById('day-counter').textContent='Dia '+Math.min(d,60)+' de 60 · '+new Date().toLocaleDateString('pt-BR');
+}
+
+function searchFood(q){
+  document.getElementById('food-search').value=q||document.getElementById('food-search').value;
+  const sq=(q||document.getElementById('food-search').value).toLowerCase();
+  const results=FOOD_DB.filter(f=>f.n.toLowerCase().includes(sq));
+  const el=document.getElementById('add-food-result');
+  if(!sq||results.length===0){el.innerHTML='';return;}
+  el.innerHTML=results.slice(0,7).map(f=>`
+    <div class="food-result-item">
+      <div style="flex:1;">
+        <div style="font-weight:500;">${f.n}</div>
+        <div style="font-size:11px;color:var(--c-muted);">${f.cal} kcal · P${f.p}g C${f.c}g G${f.f}g</div>
+      </div>
+      <button class="food-result-add" onclick='addToLog(${JSON.stringify(f)})'>+ add</button>
+    </div>
+  `).join('');
+}
+
+function addToLog(food){
+  log.push({...food,time:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})});
+  localStorage.setItem('breno_log_'+todayKey(),JSON.stringify(log));
+  renderLog();updateDayTotals();
+  document.getElementById('add-food-result').innerHTML='';
+  document.getElementById('food-search').value='';
+}
+
+function removeFromLog(idx){
+  log.splice(idx,1);
+  localStorage.setItem('breno_log_'+todayKey(),JSON.stringify(log));
+  renderLog();updateDayTotals();
+}
+
+function clearLog(){
+  if(!confirm('Limpar todo o registro de hoje?'))return;
+  log=[];localStorage.setItem('breno_log_'+todayKey(),JSON.stringify(log));
+  renderLog();updateDayTotals();
+}
+
+function renderLog(){
+  const el=document.getElementById('log-list');
+  if(!log.length){el.innerHTML='<div style="font-size:13px;color:var(--c-muted);text-align:center;padding:1.5rem 0;">Nenhum alimento registrado ainda</div>';return;}
+  el.innerHTML=log.map((f,i)=>`
+    <div class="food-result-item">
+      <div style="flex:1;">
+        <div style="font-weight:500;font-size:13px;">${f.n}</div>
+        <div style="font-size:11px;color:var(--c-muted);">${f.cal} kcal · P${f.p}g C${f.c}g G${f.f}g · ${f.time}</div>
+      </div>
+      <button class="rm-btn" onclick="removeFromLog(${i})" title="Remover"><i class="ti ti-trash"></i></button>
+    </div>
+  `).join('');
+  const tC=log.reduce((a,f)=>a+f.cal,0),tP=log.reduce((a,f)=>a+f.p,0),tCa=log.reduce((a,f)=>a+f.c,0),tF=log.reduce((a,f)=>a+f.f,0);
+  document.getElementById('log-total-cal').textContent=tC+' kcal';
+  document.getElementById('log-total-prot').textContent=tP+'g';
+  document.getElementById('log-total-carb').textContent=tCa+'g';
+  document.getElementById('log-total-fat').textContent=tF+'g';
+}
+
+function updateDayTotals(){
+  const tC=log.reduce((a,f)=>a+f.cal,0),tP=log.reduce((a,f)=>a+f.p,0),tCa=log.reduce((a,f)=>a+f.c,0),tF=log.reduce((a,f)=>a+f.f,0);
+  document.getElementById('cal-consumed').textContent=tC;
+  const rem=META_CAL-tC;
+  document.getElementById('cal-remaining').textContent=rem>0?rem+' kcal restantes':'✓ Meta calórica atingida!';
+  const pct=Math.min(100,Math.round(tC/META_CAL*100));
+  const bar=document.getElementById('cal-bar');
+  bar.style.width=pct+'%';bar.className='progress-bar'+(pct>110?' danger':pct>90?' warn':'');
+  document.getElementById('prot-bar').style.width=Math.min(100,Math.round(tP/META_PROT*100))+'%';
+  document.getElementById('carb-bar').style.width=Math.min(100,Math.round(tCa/META_CARB*100))+'%';
+  document.getElementById('fat-bar').style.width=Math.min(100,Math.round(tF/META_FAT*100))+'%';
+  document.getElementById('prot-val').textContent=tP+' / '+META_PROT+'g';
+  document.getElementById('carb-val').textContent=tCa+' / '+META_CARB+'g';
+  document.getElementById('fat-val').textContent=tF+' / '+META_FAT+'g';
+}
+
+function saveWeight(){
+  const v=parseFloat(document.getElementById('new-weight').value);
+  if(isNaN(v)||v<40||v>250){alert('Peso inválido');return;}
+  const today=todayKey();
+  const idx=weights.findIndex(w=>w.d===today);
+  if(idx>=0)weights[idx].v=v;else weights.push({d:today,v});
+  localStorage.setItem('breno_weights',JSON.stringify(weights));
+  document.getElementById('m-peso').textContent=v.toFixed(1);
+  const fatMass=16.49+((v-83.1)*0.3);
+  const estBF=Math.max(8,Math.min(30,(fatMass/v*100)));
+  document.getElementById('current-bf').innerHTML=estBF.toFixed(1)+'<span class="unit">%</span>';
+  const kgLeft=Math.max(0,fatMass-v*0.13);
+  document.getElementById('m-kg-perd').innerHTML='~'+kgLeft.toFixed(1)+'<span class="unit">kg</span>';
+  updateBFProgress(estBF);
+  renderWeightChart();
+  document.getElementById('new-weight').value='';
+}
+
+function updateBFProgress(bf){
+  const pct=Math.max(0,Math.min(100,Math.round((19.84-bf)/(19.84-13)*100)));
+  document.getElementById('bf-progress-bar').style.width=pct+'%';
+  document.getElementById('bf-progress-label').textContent=pct+'% concluído em direção à meta de 13%';
+}
+
+function updateProgressDays(){
+  const done=doneDays.length;
+  document.getElementById('days-done-count').textContent=done;
+  const pct=Math.round(done/60*100);
+  document.getElementById('days-done-bar').style.width=pct+'%';
+  document.getElementById('days-done-pct').textContent=pct+'% da jornada completa';
+}
+
+function renderWeightChart(){
+  const ctx=document.getElementById('weightChart');
+  if(!ctx)return;
+  if(wChart)wChart.destroy();
+  const labels=weights.map(w=>w.d.slice(5));
+  const data=weights.map(w=>w.v);
+  wChart=new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets:[{label:'Peso (kg)',data,borderColor:'#2a9d8f',backgroundColor:'rgba(42,157,143,0.08)',pointBackgroundColor:'#2a9d8f',tension:0.3,borderWidth:2,pointRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{grid:{color:'rgba(128,128,128,0.08)'},ticks:{font:{size:11}},suggestedMin:74,suggestedMax:86}}}
+  });
+}
+
+function markPhoto(day){
+  const el=document.getElementById('photo-d'+day);
+  if(photosDone.includes(day)){
+    photosDone=photosDone.filter(d=>d!==day);
+    el.classList.remove('done');
+  } else {
+    photosDone.push(day);
+    el.classList.add('done');
+    el.querySelector('i').className='ti ti-check';
+  }
+  localStorage.setItem('breno_photos',JSON.stringify(photosDone));
+}
+
+function init(){
+  updateDayCounter();
+  initWater();
+  initJourney();
+  updateStreak();
+  renderLog();
+  updateDayTotals();
+  updateProgressDays();
+  updateBFProgress(19.84);
+  photosDone.forEach(d=>{
+    const el=document.getElementById('photo-d'+d);
+    if(el){el.classList.add('done');el.querySelector('i').className='ti ti-check';}
+  });
+}
+init();
+</script>
+</body>
+</html>
