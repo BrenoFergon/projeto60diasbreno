@@ -621,8 +621,8 @@ let photosDone = JSON.parse(localStorage.getItem('breno_photos')||'[]');
 let wChart = null;
 
 function switchTab(id){
-  document.querySelectorAll('.tab').forEach((t,i)=>{
-    t.classList.toggle('active',['painel','dieta','registro','progresso','dicas'][i]===id);
+  document.querySelectorAll('.tabs .tab').forEach(t=>{
+    t.classList.toggle('active', t.getAttribute('onclick').includes("'"+id+"'"));
   });
   document.querySelectorAll('.section').forEach(s=>s.classList.toggle('active',s.id==='tab-'+id));
   if(id==='progresso') setTimeout(renderWeightChart,100);
